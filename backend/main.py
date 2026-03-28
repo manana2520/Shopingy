@@ -595,8 +595,8 @@ def get_proximity(mall: str = Query(...), radius_km: float = 10.0):
                 "city": row.get("city", ""),
                 "stores_count": int(row.get("stores_count", 0) or 0),
                 "brands_count": int(row.get("brands_count", 0) or 0),
-                "gla": row.get("gla", None),
-                "operator": row.get("operator", ""),
+                "gla": None if pd.isna(row.get("gla")) else row.get("gla"),
+                "operator": str(row.get("operator", "") or ""),
                 "latitude": lat,
                 "longitude": lng,
             })
