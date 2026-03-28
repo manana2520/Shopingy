@@ -179,19 +179,15 @@ def _load_table(table_key: str) -> pd.DataFrame:
 
     # 3. Fall back to Keboola Storage API
     table_id = TABLE_IDS[table_key]
-    if get_kbc_token() and get_kbc_url():
-        try:
-            return _export_table(table_id)
-        except Exception:
-            logger.warning(
-                "Failed to load %s from Keboola API",
-                table_id,
-                exc_info=True,
-            )
+    token = get_kbc_token()
+    url = get_kbc_url()
+    logger.info("Attempting Keboola API: token=%s, url=%s, table=%s", bool(token), url, table_id)
+    if token and url:
+        return _export_table(table_id)
 
     raise FileNotFoundError(
-        f"Cannot load table '{table_key}': local CSV not found at {csv_path} "
-        f"and Keboola API is not configured or failed."
+        f"Cannot load table '{table_key}': no local CSV at {csv_path}, "
+        f"no input mapping, token_present={bool(token)}, url={url}"
     )
 
 
