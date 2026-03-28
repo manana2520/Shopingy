@@ -195,22 +195,19 @@ export function KaiChatProvider({ children }: { children: ReactNode }) {
           }
 
           const lines = event.data.split('\n');
-          let currentEvent = '';
 
           for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              currentEvent = line.slice(7).trim();
-              continue;
-            }
-            if (line.startsWith('data: ')) {
-              const dataStr = line.slice(6);
-              try {
-                const data = JSON.parse(dataStr);
+            const dataLine = line.startsWith('data: ') ? line.slice(6) : line;
+            if (!dataLine.trim()) continue;
+            try {
+              const data = JSON.parse(dataLine);
+              // Kai uses data.type field (not separate event: lines)
+              const eventType = data.type ?? '';
 
-                switch (currentEvent) {
-                  case 'text-delta': {
-                    const delta = data.textDelta ?? data.text ?? '';
-                    accumulatedTextRef.current += delta;
+              switch (eventType) {
+                case 'text-delta': {
+                  const delta = data.delta ?? data.textDelta ?? data.text ?? '';
+                  accumulatedTextRef.current += delta;
                     setMessages((prev) =>
                       prev.map((m) =>
                         m.id === assistantMessageId
@@ -220,7 +217,7 @@ export function KaiChatProvider({ children }: { children: ReactNode }) {
                     );
                     break;
                   }
-                  case 'tool-call-streaming-start': {
+                  case 'tool-input-start': {
                     const step: ToolStep = {
                       id: data.toolCallId ?? generateId(),
                       name: data.toolName ?? 'tool',
@@ -237,6 +234,7 @@ export function KaiChatProvider({ children }: { children: ReactNode }) {
                     );
                     break;
                   }
+                  case 'tool-output-available':
                   case 'tool-result': {
                     const toolId = data.toolCallId;
                     setToolSteps((prev) =>
@@ -258,6 +256,7 @@ export function KaiChatProvider({ children }: { children: ReactNode }) {
                     );
                     break;
                   }
+                  case 'end':
                   case 'finish': {
                     setIsStreaming(false);
                     wsRef.current = null;
@@ -300,7 +299,6 @@ export function KaiChatProvider({ children }: { children: ReactNode }) {
                 // Non-JSON data line, skip
               }
             }
-          }
         };
 
         ws.onerror = () => {
