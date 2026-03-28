@@ -1,24 +1,28 @@
-"""Configuration for Shopingy backend - loads from environment or .env file."""
+"""Configuration for Shopingy backend - loads from environment at runtime."""
 
 import os
 import logging
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 logger = logging.getLogger(__name__)
 
-# Load .env from project root for local development
+# Load .env from project root for local development only
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_ROOT / ".env"
 if ENV_FILE.exists():
+    from dotenv import load_dotenv
     load_dotenv(ENV_FILE)
 
-# Keboola configuration
-KBC_TOKEN: str = os.environ.get("KBC_TOKEN") or os.environ.get("KEBOOLA_MASTER_TOKEN", "")
-KBC_URL: str = os.environ.get("KBC_URL") or os.environ.get("KEBOOLA_STACK_URL", "")
 
-logger.info("KBC_TOKEN present: %s, KBC_URL: %s", bool(KBC_TOKEN), KBC_URL or "NOT SET")
+def get_kbc_token() -> str:
+    """Get Keboola Storage API token from environment."""
+    return os.environ.get("KBC_TOKEN") or os.environ.get("KEBOOLA_MASTER_TOKEN", "")
+
+
+def get_kbc_url() -> str:
+    """Get Keboola connection URL from environment."""
+    return os.environ.get("KBC_URL") or os.environ.get("KEBOOLA_STACK_URL", "")
+
 
 # Local CSV fallback directory (for local development)
 LOCAL_CSV_DIR: Path = PROJECT_ROOT / "data" / "processed"
@@ -45,8 +49,11 @@ EXPORT_POLL_MAX_ATTEMPTS = 60
 
 
 def validate_config() -> None:
-    """Validate that required configuration is present. Called at startup."""
-    if not KBC_TOKEN and not LOCAL_CSV_DIR.exists() and not INPUT_MAPPING_DIR.exists():
-        raise ValueError(
-            "No data source available. Need KBC_TOKEN, local CSVs, or input mapping."
-        )
+    """Log config status at startup."""
+    token = get_kbc_token()
+    url = get_kbc_url()
+    logger.info("KBC_TOKEN present: %s, KBC_URL: %s", bool(token), url or "NOT SET")
+    logger.info("LOCAL_CSV_DIR exists: %s", LOCAL_CSV_DIR.exists())
+    logger.info("INPUT_MAPPING_DIR exists: %s", INPUT_MAPPING_DIR.exists())
+    if INPUT_MAPPING_DIR.exists():
+        logger.info("Input mapping files: %s", list(INPUT_MAPPING_DIR.iterdir()))

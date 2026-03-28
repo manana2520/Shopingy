@@ -12,10 +12,10 @@ from backend.config import (
     EXPORT_POLL_INTERVAL_SECONDS,
     EXPORT_POLL_MAX_ATTEMPTS,
     INPUT_MAPPING_DIR,
-    KBC_TOKEN,
-    KBC_URL,
     LOCAL_CSV_DIR,
     TABLE_IDS,
+    get_kbc_token,
+    get_kbc_url,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ LOCAL_CSV_NAMES = {
 
 
 def _keboola_headers() -> dict[str, str]:
-    return {"X-StorageApi-Token": KBC_TOKEN}
+    return {"X-StorageApi-Token": get_kbc_token()}
 
 
 def _download_sliced_file(file_info: dict) -> str:
@@ -88,7 +88,7 @@ def _export_table(table_id: str) -> pd.DataFrame:
     4. GET /files/{file_id}?federationToken=1 -> file info JSON
     5. If sliced: download manifest + all slices; otherwise download single CSV
     """
-    base_url = f"{KBC_URL}/v2/storage"
+    base_url = f"{get_kbc_url()}/v2/storage"
     headers = _keboola_headers()
 
     # Step 1: Start async export
@@ -179,7 +179,7 @@ def _load_table(table_key: str) -> pd.DataFrame:
 
     # 3. Fall back to Keboola Storage API
     table_id = TABLE_IDS[table_key]
-    if KBC_TOKEN and KBC_URL:
+    if get_kbc_token() and get_kbc_url():
         try:
             return _export_table(table_id)
         except Exception:
