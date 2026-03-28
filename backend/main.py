@@ -2,13 +2,15 @@
 
 import logging
 import math
+from contextlib import asynccontextmanager
 from typing import Any
 
+import httpx
 import pandas as pd
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.config import validate_config
+from backend.config import get_kbc_token, get_kbc_url, validate_config
 from backend.data import (
     clear_cache,
     load_brands,
@@ -26,7 +28,27 @@ logger = logging.getLogger(__name__)
 
 validate_config()
 
-app = FastAPI(title="Shopingy API")
+# ---------------------------------------------------------------------------
+# Kai AI chatbot proxy state
+# ---------------------------------------------------------------------------
+_kai_url: str | None = None
+_async_client: httpx.AsyncClient | None = None
+
+
+@asynccontextmanager
+async def lifespan(app_instance):
+    global _async_client
+    _async_client = httpx.AsyncClient(timeout=httpx.Timeout(600.0, connect=30.0))
+    try:
+        await _discover_kai_url()
+    except Exception as e:
+        logger.warning("Kai pre-warm failed: %s", e)
+    yield
+    if _async_client:
+        await _async_client.aclose()
+
+
+app = FastAPI(title="Shopingy API", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,6 +73,111 @@ def _df_to_records(df: pd.DataFrame) -> list[dict[str, Any]]:
 def _to_numeric_safe(series: pd.Series) -> pd.Series:
     """Convert a series to numeric, coercing errors to NaN."""
     return pd.to_numeric(series, errors="coerce")
+
+
+# ---------------------------------------------------------------------------
+# Kai AI chatbot helpers
+# ---------------------------------------------------------------------------
+
+
+async def _discover_kai_url() -> str:
+    global _kai_url
+    if _kai_url:
+        return _kai_url
+    token = get_kbc_token()
+    url = get_kbc_url()
+    if not token or not url:
+        raise HTTPException(500, "KBC_TOKEN/KBC_URL not configured")
+    base = url.split("/v2/")[0] if "/v2/" in url else url
+    resp = await _async_client.get(
+        f"{base}/v2/storage",
+        headers={"x-storageapi-token": token},
+        timeout=30.0,
+    )
+    data = resp.json()
+    services = data.get("services", [])
+    svc = next((s for s in services if s["id"] == "kai-assistant"), None)
+    if not svc:
+        raise HTTPException(500, "kai-assistant service not found")
+    _kai_url = svc["url"].rstrip("/")
+    logger.info("Kai service discovered: %s", _kai_url)
+    return _kai_url
+
+
+def _kai_headers() -> dict:
+    token = get_kbc_token()
+    return {
+        "x-storageapi-token": token,
+        "content-type": "application/json",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Kai AI chatbot endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.websocket("/api/chat/ws")
+async def kai_ws(websocket: WebSocket):
+    """WebSocket proxy to Kai AI. Client sends JSON, receives SSE chunks."""
+    await websocket.accept()
+    try:
+        body = await websocket.receive_json()
+    except WebSocketDisconnect:
+        return
+
+    kai_url = await _discover_kai_url()
+    headers = _kai_headers()
+    logger.info("Kai WS proxy: POST %s/api/chat", kai_url)
+
+    resp = None
+    try:
+        req = _async_client.build_request("POST", f"{kai_url}/api/chat", headers=headers, json=body)
+        resp = await _async_client.send(req, stream=True)
+
+        if resp.status_code != 200:
+            error_body = await resp.aread()
+            await websocket.send_json({"error": error_body.decode("utf-8", errors="replace")[:500]})
+            await websocket.close()
+            await resp.aclose()
+            return
+
+        raw = b""
+        async for chunk in resp.aiter_bytes():
+            raw += chunk
+            while b"\n\n" in raw:
+                event_bytes, raw = raw.split(b"\n\n", 1)
+                event_str = event_bytes.decode("utf-8", errors="replace").strip()
+                if event_str:
+                    await websocket.send_text(event_str)
+
+        await websocket.send_json({"done": True})
+        await websocket.close()
+    except WebSocketDisconnect:
+        logger.info("Kai WS: client disconnected")
+    except Exception as exc:
+        logger.exception("Kai WS error: %s", exc)
+        try:
+            await websocket.send_json({"error": str(exc)})
+            await websocket.close()
+        except Exception:
+            pass
+    finally:
+        try:
+            if resp:
+                await resp.aclose()
+        except Exception:
+            pass
+
+
+@app.post("/api/chat")
+async def kai_chat_http(request: Request):
+    """HTTP fallback for chat (non-streaming)."""
+    kai_url = await _discover_kai_url()
+    headers = _kai_headers()
+    body = await request.json()
+    resp = await _async_client.post(f"{kai_url}/api/chat", headers=headers, json=body, timeout=120.0)
+    return Response(content=resp.content, status_code=resp.status_code, media_type="text/event-stream")
 
 
 # ---------------------------------------------------------------------------
