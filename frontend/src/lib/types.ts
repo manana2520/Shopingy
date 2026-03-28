@@ -171,6 +171,27 @@ export interface DisruptorBrand {
   net_change: number;
 }
 
+export interface ProximityResult {
+  center: { name: string; latitude: number; longitude: number; type: string; city: string; stores_count: number; brands_count: number };
+  radius_km: number;
+  total_nearby: number;
+  total_stores_in_catchment: number;
+  nearby: ProximityMall[];
+}
+
+export interface ProximityMall {
+  name: string;
+  distance_km: number;
+  type: string;
+  city: string;
+  stores_count: number;
+  brands_count: number;
+  gla: number | null;
+  operator: string;
+  latitude: number;
+  longitude: number;
+}
+
 export interface EcosystemPair {
   brand_a: string;
   brand_b: string;

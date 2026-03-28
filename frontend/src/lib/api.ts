@@ -16,6 +16,7 @@ import type {
   EcosystemData,
   EcosystemPair,
   DisruptorBrand,
+  ProximityResult,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -115,6 +116,10 @@ export async function fetchEcosystem(brand?: string): Promise<EcosystemData> {
     };
   }
   return { pairs: raw };
+}
+
+export async function fetchProximity(mall: string, radiusKm: number = 10) {
+  return fetchJSON<ProximityResult>(`/proximity?mall=${encodeURIComponent(mall)}&radius_km=${radiusKm}`);
 }
 
 export async function fetchDisruptors(since?: string, category?: string) {

@@ -13,6 +13,7 @@ import {
   Activity,
   Zap,
   Network,
+  Target,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { href: '/health', label: 'Mall Health', icon: Activity },
   { href: '/disruptors', label: 'Disruptors', icon: Zap },
   { href: '/ecosystem', label: 'Ecosystem', icon: Network },
+  { href: '/proximity', label: 'Catchment', icon: Target },
 ];
 
 export function Navbar() {

@@ -552,6 +552,74 @@ def get_health_scores() -> list[dict[str, Any]]:
     return _df_to_records(result.rename(columns={"shopping_mall": "mall_name"}))
 
 
+@app.get("/api/proximity")
+def get_proximity(mall: str = Query(...), radius_km: float = 10.0):
+    """Find malls within a radius of the selected mall using Haversine formula."""
+
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 6371  # Earth radius in km
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+        return R * 2 * math.asin(math.sqrt(a))
+
+    malls_df = load_malls().copy()
+
+    # Find center mall
+    center = malls_df[malls_df["name"] == mall]
+    if center.empty:
+        raise HTTPException(404, f"Mall '{mall}' not found")
+
+    center_row = center.iloc[0]
+    center_lat = float(center_row.get("latitude", 0) or 0)
+    center_lng = float(center_row.get("longitude", 0) or 0)
+
+    if center_lat == 0 or center_lng == 0:
+        raise HTTPException(400, f"Mall '{mall}' has no GPS coordinates")
+
+    # Compute distances to all other malls
+    nearby = []
+    for _, row in malls_df.iterrows():
+        if row["name"] == mall:
+            continue
+        lat = float(row.get("latitude", 0) or 0)
+        lng = float(row.get("longitude", 0) or 0)
+        if lat == 0 or lng == 0:
+            continue
+        dist = haversine(center_lat, center_lng, lat, lng)
+        if dist <= radius_km:
+            nearby.append({
+                "name": row["name"],
+                "distance_km": round(dist, 1),
+                "type": row.get("type", ""),
+                "city": row.get("city", ""),
+                "stores_count": int(row.get("stores_count", 0) or 0),
+                "brands_count": int(row.get("brands_count", 0) or 0),
+                "gla": row.get("gla", None),
+                "operator": row.get("operator", ""),
+                "latitude": lat,
+                "longitude": lng,
+            })
+
+    nearby.sort(key=lambda x: x["distance_km"])
+
+    return {
+        "center": {
+            "name": mall,
+            "latitude": center_lat,
+            "longitude": center_lng,
+            "type": str(center_row.get("type", "")),
+            "city": str(center_row.get("city", "")),
+            "stores_count": int(center_row.get("stores_count", 0) or 0),
+            "brands_count": int(center_row.get("brands_count", 0) or 0),
+        },
+        "radius_km": radius_km,
+        "total_nearby": len(nearby),
+        "total_stores_in_catchment": sum(m["stores_count"] for m in nearby),
+        "nearby": nearby,
+    }
+
+
 @app.get("/api/ecosystem")
 def get_ecosystem(
     brand: str | None = None,
