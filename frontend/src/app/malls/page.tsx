@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, ChevronDown, ChevronUp, MapPin, Building2, Store, ExternalLink } from 'lucide-react';
 import { fetchMalls, fetchEnums, fetchMallDetail } from '@/lib/api';
 import { COLORS } from '@/lib/theme';
@@ -11,12 +12,21 @@ type SortField = 'name' | 'type' | 'city' | 'stores_count' | 'brands_count' | 'g
 type SortDirection = 'asc' | 'desc';
 
 export default function MallsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 32, color: '#94A3B8' }}>Loading...</div>}>
+      <MallsContent />
+    </Suspense>
+  );
+}
+
+function MallsContent() {
+  const searchParams = useSearchParams();
   const [malls, setMalls] = useState<Mall[]>([]);
   const [enums, setEnums] = useState<EnumValues | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [cityFilter, setCityFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
