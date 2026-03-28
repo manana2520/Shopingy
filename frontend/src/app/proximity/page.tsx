@@ -263,7 +263,7 @@ export default function ProximityPage() {
                     <tr key={mall.name} className="border-t" style={{ borderColor: '#F1F5F9' }}>
                       <td className="px-3 py-2">
                         <a
-                          href={`/malls/${encodeURIComponent(mall.name)}`}
+                          href={`/malls?search=${encodeURIComponent(mall.name)}`}
                           className="font-medium hover:underline"
                           style={{ color: '#3EA8FF' }}
                         >
