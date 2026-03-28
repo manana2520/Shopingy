@@ -14,6 +14,7 @@ import type {
   HeatmapFilters,
   HealthScore,
   EcosystemData,
+  EcosystemPair,
   DisruptorBrand,
 } from './types';
 
@@ -96,9 +97,24 @@ export async function fetchHealthScores() {
   return fetchJSON<HealthScore[]>('/health-scores');
 }
 
-export async function fetchEcosystem(brand?: string) {
-  const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
-  return fetchJSON<EcosystemData>(`/ecosystem${q}`);
+export async function fetchEcosystem(brand?: string): Promise<EcosystemData> {
+  const params = new URLSearchParams();
+  if (brand) params.append('brand', brand);
+  params.append('min_shared', '3');
+  const raw = await fetchJSON<EcosystemPair[]>(`/ecosystem?${params.toString()}`);
+  if (brand) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const items = raw as any[];
+    return {
+      brand,
+      co_occurring: items.map((r) => ({
+        brand: r.brand_b as string,
+        shared_malls: r.shared_malls as number,
+        strength: (r.strength as number) ?? 0,
+      })),
+    };
+  }
+  return { pairs: raw };
 }
 
 export async function fetchDisruptors(since?: string, category?: string) {

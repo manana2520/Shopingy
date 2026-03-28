@@ -555,7 +555,7 @@ def get_health_scores() -> list[dict[str, Any]]:
 @app.get("/api/ecosystem")
 def get_ecosystem(
     brand: str | None = None,
-    min_shared: int = 10,
+    min_shared: int = 3,
 ) -> list[dict[str, Any]]:
     """Brand co-occurrence: pairs of brands that share malls."""
     stores_df = load_stores().copy()
