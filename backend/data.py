@@ -11,6 +11,7 @@ import pandas as pd
 from backend.config import (
     EXPORT_POLL_INTERVAL_SECONDS,
     EXPORT_POLL_MAX_ATTEMPTS,
+    INPUT_MAPPING_DIR,
     KBC_TOKEN,
     KBC_URL,
     LOCAL_CSV_DIR,
@@ -161,15 +162,22 @@ def _export_table(table_id: str) -> pd.DataFrame:
 
 
 def _load_table(table_key: str) -> pd.DataFrame:
-    """Load a table, preferring local CSV for speed, falling back to Keboola API."""
-    csv_path = LOCAL_CSV_DIR / LOCAL_CSV_NAMES[table_key]
+    """Load a table from: 1) local CSV, 2) input mapping, 3) Keboola API."""
+    csv_name = LOCAL_CSV_NAMES[table_key]
+    csv_path = LOCAL_CSV_DIR / csv_name
 
-    # Prefer local CSV if available (fast, works offline)
+    # 1. Prefer local CSV if available (fast, works offline)
     if csv_path.exists():
         logger.info("Loading %s from local CSV: %s", table_key, csv_path)
         return pd.read_csv(csv_path)
 
-    # Fall back to Keboola API
+    # 2. Check Keboola input mapping (/data/in/tables/)
+    input_path = INPUT_MAPPING_DIR / csv_name
+    if input_path.exists():
+        logger.info("Loading %s from input mapping: %s", table_key, input_path)
+        return pd.read_csv(input_path)
+
+    # 3. Fall back to Keboola Storage API
     table_id = TABLE_IDS[table_key]
     if KBC_TOKEN and KBC_URL:
         try:
