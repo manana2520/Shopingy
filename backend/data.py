@@ -8,7 +8,7 @@ from functools import lru_cache
 import httpx
 import pandas as pd
 
-from config import (
+from backend.config import (
     EXPORT_POLL_INTERVAL_SECONDS,
     EXPORT_POLL_MAX_ATTEMPTS,
     KBC_TOKEN,

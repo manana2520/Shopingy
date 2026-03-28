@@ -8,8 +8,8 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from config import validate_config
-from data import (
+from backend.config import validate_config
+from backend.data import (
     clear_cache,
     load_brands,
     load_brand_country_matrix,
