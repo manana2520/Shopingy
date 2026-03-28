@@ -105,7 +105,10 @@ async def _discover_kai_url() -> str:
 
 
 def _kai_headers() -> dict:
-    token = get_kbc_token()
+    import os
+    # Prefer SHOPINGY_KAI_TOKEN (dedicated Kai-enabled token), fall back to KBC_TOKEN
+    token = os.environ.get("SHOPINGY_KAI_TOKEN", "").strip() or os.environ.get("KAI_TOKEN", "").strip() or get_kbc_token()
+    logger.info("Kai auth: using %s", "KAI_TOKEN" if os.environ.get("KAI_TOKEN", "").strip() else "KBC_TOKEN")
     return {
         "x-storageapi-token": token,
         "content-type": "application/json",
