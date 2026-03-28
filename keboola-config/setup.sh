@@ -1,20 +1,33 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-echo "Installing backend dependencies..."
-cd /app/backend && /app/.venv/bin/pip install -r requirements.txt
+echo "=== Environment info ==="
+echo "Python: $(which python3 || which python)"
+echo "Pip: $(which pip3 || which pip || echo 'not found')"
+echo "Node: $(which node || echo 'not found')"
+echo "NPM: $(which npm || echo 'not found')"
+echo "PWD: $(pwd)"
+echo "Contents of /app: $(ls /app/)"
+echo "Looking for venv..."
+find / -name "pip" -type f 2>/dev/null | head -5 || true
 
-echo "Installing Node.js and frontend dependencies..."
-# Install Node.js if not available
+echo "=== Installing backend dependencies ==="
+cd /app/backend
+pip3 install -r requirements.txt || pip install -r requirements.txt
+
+echo "=== Installing Node.js ==="
 if ! command -v node &> /dev/null; then
-    echo "Installing Node.js..."
+    echo "Node.js not found, installing..."
+    apt-get update -qq && apt-get install -y -qq curl
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-    apt-get install -y nodejs
+    apt-get install -y -qq nodejs
 fi
+echo "Node: $(node --version)"
+echo "NPM: $(npm --version)"
 
-echo "Node version: $(node --version)"
-echo "NPM version: $(npm --version)"
+echo "=== Building frontend ==="
+cd /app/frontend
+npm install --legacy-peer-deps
+npm run build
 
-cd /app/frontend && npm install --legacy-peer-deps && npm run build
-
-echo "Setup complete."
+echo "=== Setup complete ==="
