@@ -39,39 +39,43 @@ def _keboola_headers() -> dict[str, str]:
 
 
 def _download_sliced_file(file_info: dict) -> str:
-    """Download a sliced file from GCP Keboola by fetching the manifest and all slices."""
+    """Download a sliced file from GCP Keboola.
+
+    GCS sliced files have a manifest URL pointing to entries with gs:// URLs.
+    Convert gs:// to https://storage.googleapis.com/ and reuse the signing
+    params from the manifest URL.
+    """
     import json
 
     manifest_url = file_info["url"]
+    logger.info("Fetching manifest from %s", manifest_url[:80])
+
+    # Extract signing query params from manifest URL
+    query_params = ""
+    if "?" in manifest_url:
+        query_params = manifest_url.split("?", 1)[1]
+
     resp = httpx.get(manifest_url, timeout=60.0, follow_redirects=True)
     resp.raise_for_status()
     manifest = json.loads(resp.text)
     entries = manifest.get("entries", [])
-
-    # Build base URL from manifest URL (strip the manifest filename)
-    base_url = manifest_url.rsplit("/", 1)[0]
-
-    # Each entry has a "url" relative path; we need to construct the full signed URL
-    # The slices share the same signing params as the manifest
-    # Extract query string from manifest URL for signing
-    if "?" in manifest_url:
-        query_params = manifest_url.split("?", 1)[1]
-    else:
-        query_params = ""
+    logger.info("Manifest has %d slices", len(entries))
 
     chunks = []
-    for entry in entries:
-        slice_url = entry["url"]
-        # The entry URL is relative - construct full URL
-        if slice_url.startswith("http"):
-            full_url = slice_url
+    for i, entry in enumerate(entries):
+        gs_url = entry["url"]
+        # Convert gs://bucket/path to https://storage.googleapis.com/bucket/path
+        if gs_url.startswith("gs://"):
+            https_url = "https://storage.googleapis.com/" + gs_url[5:]
         else:
-            # Relative path from manifest location
-            full_url = f"{base_url}/{slice_url}"
-            if query_params:
-                full_url = f"{full_url}?{query_params}"
+            https_url = gs_url
 
-        resp = httpx.get(full_url, timeout=120.0, follow_redirects=True)
+        # Add signing params
+        if query_params and "?" not in https_url:
+            https_url = f"{https_url}?{query_params}"
+
+        logger.debug("Downloading slice %d/%d", i + 1, len(entries))
+        resp = httpx.get(https_url, timeout=120.0, follow_redirects=True)
         resp.raise_for_status()
         chunks.append(resp.text)
 
