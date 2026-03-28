@@ -13,13 +13,13 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
+  { href: '/assistant', label: 'AI Assistant', icon: MessageCircle },
   { href: '/', label: 'Market Pulse', icon: BarChart3 },
   { href: '/heatmap', label: 'Heatmap', icon: Map },
   { href: '/gap-analysis', label: 'GAP Analysis', icon: Grid3X3 },
   { href: '/malls', label: 'Malls', icon: Building2 },
   { href: '/brands', label: 'Brands', icon: Tags },
   { href: '/trends', label: 'Trends', icon: TrendingUp },
-  { href: '/assistant', label: 'AI Assistant', icon: MessageCircle },
 ];
 
 export function Navbar() {
