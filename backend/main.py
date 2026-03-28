@@ -513,3 +513,132 @@ def get_trends() -> dict[str, list[dict[str, Any]]]:
         "openings": _df_to_records(openings),
         "closings": _df_to_records(closings),
     }
+
+
+@app.get("/api/health-scores")
+def get_health_scores() -> list[dict[str, Any]]:
+    """Mall health: openings vs closings, churn rate, net change."""
+    stores_df = load_stores().copy()
+    malls_df = load_malls().copy()
+
+    # Parse dates
+    stores_df["has_close"] = (
+        stores_df["closed_date"].notna()
+        & (stores_df["closed_date"] != "")
+        & (stores_df["closed_date"] != "-0001-11-30")
+    )
+    stores_df["has_open"] = (
+        stores_df["opened_date"].notna()
+        & (stores_df["opened_date"] != "")
+        & (stores_df["opened_date"] != "-0001-11-30")
+    )
+
+    churn = (
+        stores_df.groupby("shopping_mall")
+        .agg(total=("id", "count"), closings=("has_close", "sum"), openings=("has_open", "sum"))
+        .reset_index()
+    )
+
+    churn["churn_rate"] = (churn["closings"] / churn["total"]).round(3)
+    churn["net_change"] = churn["openings"] - churn["closings"]
+    churn["status"] = churn["net_change"].apply(
+        lambda x: "growing" if x > 0 else ("declining" if x < 0 else "stable")
+    )
+
+    # Add mall metadata
+    mall_info = malls_df[["name", "type", "city", "stores_count", "brands_count"]].copy()
+    result = churn.merge(mall_info, left_on="shopping_mall", right_on="name", how="left")
+
+    return _df_to_records(result.rename(columns={"shopping_mall": "mall_name"}))
+
+
+@app.get("/api/ecosystem")
+def get_ecosystem(
+    brand: str | None = None,
+    min_shared: int = 10,
+) -> list[dict[str, Any]]:
+    """Brand co-occurrence: pairs of brands that share malls."""
+    stores_df = load_stores().copy()
+
+    # Build brand -> set of malls mapping
+    brand_malls = stores_df.groupby("store_name")["shopping_mall"].apply(set).to_dict()
+
+    # Filter to brands in 5+ malls
+    frequent = {b: m for b, m in brand_malls.items() if len(m) >= 5}
+
+    if brand:
+        # Show ecosystem for one specific brand
+        if brand not in frequent:
+            return []
+        target_malls = frequent[brand]
+        pairs: list[dict[str, Any]] = []
+        for other_brand, other_malls in frequent.items():
+            if other_brand == brand:
+                continue
+            shared = len(target_malls & other_malls)
+            if shared >= min_shared:
+                pairs.append({
+                    "brand_a": brand,
+                    "brand_b": other_brand,
+                    "shared_malls": int(shared),
+                    "strength": round(shared / len(target_malls), 3),
+                })
+        pairs.sort(key=lambda x: -x["shared_malls"])
+        return pairs[:50]
+    else:
+        # Return top co-occurring pairs overall
+        brands_list = sorted(frequent.keys())
+        pairs = []
+        for i in range(len(brands_list)):
+            for j in range(i + 1, len(brands_list)):
+                shared = len(frequent[brands_list[i]] & frequent[brands_list[j]])
+                if shared >= min_shared:
+                    pairs.append({
+                        "brand_a": brands_list[i],
+                        "brand_b": brands_list[j],
+                        "shared_malls": int(shared),
+                    })
+        pairs.sort(key=lambda x: -x["shared_malls"])
+        return pairs[:100]
+
+
+@app.get("/api/disruptors")
+def get_disruptors(
+    since: str = "2024-01-01",
+    category: str | None = None,
+) -> list[dict[str, Any]]:
+    """Brand winners & losers: openings vs closings since a date."""
+    stores_df = load_stores().copy()
+
+    stores_df["open_date"] = pd.to_datetime(stores_df["opened_date"], errors="coerce")
+    stores_df["close_date"] = pd.to_datetime(stores_df["closed_date"], errors="coerce")
+    since_dt = pd.to_datetime(since)
+
+    if category:
+        stores_df = stores_df[stores_df["major_category"] == category]
+
+    openings = (
+        stores_df[stores_df["open_date"] >= since_dt]
+        .groupby("store_name")
+        .size()
+        .reset_index(name="openings")
+    )
+    closings = (
+        stores_df[stores_df["close_date"] >= since_dt]
+        .groupby("store_name")
+        .size()
+        .reset_index(name="closings")
+    )
+
+    result = openings.merge(closings, on="store_name", how="outer").fillna(0)
+    result["openings"] = result["openings"].astype(int)
+    result["closings"] = result["closings"].astype(int)
+    result["net_change"] = result["openings"] - result["closings"]
+
+    # Add category info
+    cat_map = stores_df.groupby("store_name")["major_category"].first()
+    result["category"] = result["store_name"].map(cat_map).fillna("")
+
+    result = result.sort_values("net_change", ascending=False)
+
+    return _df_to_records(result.rename(columns={"store_name": "brand_name"}))

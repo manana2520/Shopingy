@@ -12,6 +12,9 @@ import type {
   TrendData,
   StoreFilters,
   HeatmapFilters,
+  HealthScore,
+  EcosystemData,
+  DisruptorBrand,
 } from './types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
@@ -87,4 +90,21 @@ export async function fetchTrendData(): Promise<TrendData> {
 
 export async function fetchBrandDetail(brandName: string): Promise<BrandDetail> {
   return fetchJSON<BrandDetail>(`/brands/${encodeURIComponent(brandName)}`);
+}
+
+export async function fetchHealthScores() {
+  return fetchJSON<HealthScore[]>('/health-scores');
+}
+
+export async function fetchEcosystem(brand?: string) {
+  const q = brand ? `?brand=${encodeURIComponent(brand)}` : '';
+  return fetchJSON<EcosystemData>(`/ecosystem${q}`);
+}
+
+export async function fetchDisruptors(since?: string, category?: string) {
+  const params = new URLSearchParams();
+  if (since) params.append('since', since);
+  if (category) params.append('category', category);
+  const q = params.toString();
+  return fetchJSON<DisruptorBrand[]>(`/disruptors${q ? `?${q}` : ''}`);
 }

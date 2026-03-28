@@ -10,6 +10,9 @@ import {
   Tags,
   TrendingUp,
   MessageCircle,
+  Activity,
+  Zap,
+  Network,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -20,6 +23,9 @@ const NAV_ITEMS = [
   { href: '/malls', label: 'Malls', icon: Building2 },
   { href: '/brands', label: 'Brands', icon: Tags },
   { href: '/trends', label: 'Trends', icon: TrendingUp },
+  { href: '/health', label: 'Mall Health', icon: Activity },
+  { href: '/disruptors', label: 'Disruptors', icon: Zap },
+  { href: '/ecosystem', label: 'Ecosystem', icon: Network },
 ];
 
 export function Navbar() {

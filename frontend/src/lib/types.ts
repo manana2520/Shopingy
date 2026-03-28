@@ -152,3 +152,40 @@ export interface HeatmapFilters {
   country?: string;
   metric?: string;
 }
+
+export interface HealthScore {
+  mall_name: string;
+  city: string;
+  openings: number;
+  closings: number;
+  total_stores: number;
+  net_change: number;
+  churn_rate: number;
+}
+
+export interface DisruptorBrand {
+  brand_name: string;
+  category: string;
+  openings: number;
+  closings: number;
+  net_change: number;
+}
+
+export interface EcosystemPair {
+  brand_a: string;
+  brand_b: string;
+  shared_malls: number;
+}
+
+export interface EcosystemBrandEntry {
+  brand: string;
+  shared_malls: number;
+  strength: number;
+}
+
+export interface EcosystemData {
+  pairs?: EcosystemPair[];
+  brand?: string;
+  total_malls?: number;
+  co_occurring?: EcosystemBrandEntry[];
+}
