@@ -12,4 +12,8 @@ wait
 echo "=== Building Next.js frontend ==="
 cd /app/frontend && npm run build
 
+echo "=== Copying static assets for standalone mode ==="
+cp -r /app/frontend/public /app/frontend/.next/standalone/frontend/public 2>/dev/null || true
+cp -r /app/frontend/.next/static /app/frontend/.next/standalone/frontend/.next/static 2>/dev/null || true
+
 echo "=== Setup complete ==="
