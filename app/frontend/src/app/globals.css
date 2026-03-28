@@ -1,0 +1,60 @@
+@import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+@import "tailwindcss";
+
+:root {
+  --shopingy-blue: #3EA8FF;
+  --shopingy-dark: #1A1A2E;
+  --shopingy-card: #F8FAFE;
+  --shopingy-success: #22C55E;
+  --shopingy-warning: #F59E0B;
+  --shopingy-danger: #EF4444;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #FFFFFF;
+  color: var(--shopingy-dark);
+}
+
+/* KPI Card styles */
+.kpi-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  border-left: 4px solid var(--shopingy-blue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.kpi-card:hover {
+  box-shadow: 0 4px 12px rgba(62, 168, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Section card */
+.section-card {
+  background: var(--shopingy-card);
+  border-radius: 12px;
+  padding: 1.5rem;
+  border: 1px solid #E5EAF0;
+}
+
+/* Nav link active */
+.nav-link-active {
+  background: rgba(62, 168, 255, 0.1);
+  color: var(--shopingy-blue);
+  font-weight: 600;
+}
+
+/* Placeholder panel */
+.placeholder-panel {
+  background: var(--shopingy-card);
+  border: 2px dashed #CBD5E1;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: #94A3B8;
+  font-size: 1rem;
+}
