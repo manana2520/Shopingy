@@ -149,15 +149,51 @@ export function KaiChatProvider({ children }: { children: ReactNode }) {
         wsRef.current = ws;
 
         ws.onopen = () => {
+          // Kai expects this format (matching profitline pattern)
           ws.send(
             JSON.stringify({
-              message: messageContent,
-              conversation_id: conversationId,
+              id: conversationId,
+              message: {
+                id: generateId(),
+                role: 'user',
+                parts: [{ type: 'text', text: messageContent }],
+              },
+              selectedChatModel: 'chat-model',
+              selectedVisibilityType: 'private',
             }),
           );
         };
 
         ws.onmessage = (event) => {
+          // Check for error/done JSON from our backend proxy
+          try {
+            const directJson = JSON.parse(event.data);
+            if (directJson.error) {
+              accumulatedTextRef.current += `\n\n**Error:** ${directJson.error}`;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, content: accumulatedTextRef.current }
+                    : m,
+                ),
+              );
+              setIsStreaming(false);
+              wsRef.current = null;
+              return;
+            }
+            if (directJson.done) {
+              setIsStreaming(false);
+              wsRef.current = null;
+              setMessages((prev) => {
+                persistConversation(prev);
+                return prev;
+              });
+              return;
+            }
+          } catch {
+            // Not a direct JSON message, parse as SSE
+          }
+
           const lines = event.data.split('\n');
           let currentEvent = '';
 
