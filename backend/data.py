@@ -39,43 +39,42 @@ def _keboola_headers() -> dict[str, str]:
 
 
 def _download_sliced_file(file_info: dict) -> str:
-    """Download a sliced file from GCP Keboola.
+    """Download a sliced file from GCP Keboola using OAuth access token.
 
-    GCS sliced files have a manifest URL pointing to entries with gs:// URLs.
-    Convert gs:// to https://storage.googleapis.com/ and reuse the signing
-    params from the manifest URL.
+    GCS sliced files: fetch manifest for slice paths, then download each
+    slice using the gcsCredentials access_token from the file info.
     """
     import json
 
     manifest_url = file_info["url"]
-    logger.info("Fetching manifest from %s", manifest_url[:80])
+    gcs_creds = file_info.get("gcsCredentials", {})
+    access_token = gcs_creds.get("access_token", "")
+    gcs_path = file_info.get("gcsPath", {})
+    bucket = gcs_path.get("bucket", "")
 
-    # Extract signing query params from manifest URL
-    query_params = ""
-    if "?" in manifest_url:
-        query_params = manifest_url.split("?", 1)[1]
+    logger.info("Fetching manifest, bucket=%s", bucket)
 
+    # Download manifest using the signed URL
     resp = httpx.get(manifest_url, timeout=60.0, follow_redirects=True)
     resp.raise_for_status()
     manifest = json.loads(resp.text)
     entries = manifest.get("entries", [])
     logger.info("Manifest has %d slices", len(entries))
 
+    auth_headers = {"Authorization": f"Bearer {access_token}"} if access_token else {}
+
     chunks = []
     for i, entry in enumerate(entries):
         gs_url = entry["url"]
+
         # Convert gs://bucket/path to https://storage.googleapis.com/bucket/path
         if gs_url.startswith("gs://"):
             https_url = "https://storage.googleapis.com/" + gs_url[5:]
         else:
             https_url = gs_url
 
-        # Add signing params
-        if query_params and "?" not in https_url:
-            https_url = f"{https_url}?{query_params}"
-
-        logger.debug("Downloading slice %d/%d", i + 1, len(entries))
-        resp = httpx.get(https_url, timeout=120.0, follow_redirects=True)
+        logger.debug("Downloading slice %d/%d: %s", i + 1, len(entries), https_url[:80])
+        resp = httpx.get(https_url, headers=auth_headers, timeout=120.0, follow_redirects=True)
         resp.raise_for_status()
         chunks.append(resp.text)
 
