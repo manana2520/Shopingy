@@ -1,9 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   async rewrites() {
-    // In production (Keboola), nginx handles /api/ routing.
-    // In local dev, proxy /api/ to FastAPI backend.
     if (process.env.NODE_ENV === 'development') {
       return [
         {
