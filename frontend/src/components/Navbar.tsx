@@ -14,6 +14,7 @@ import {
   Zap,
   Network,
   Target,
+  ShieldCheck,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: '/disruptors', label: 'Disruptors', icon: Zap },
   { href: '/ecosystem', label: 'Ecosystem', icon: Network },
   { href: '/proximity', label: 'Catchment', icon: Target },
+  { href: '/data-quality', label: 'Data Quality', icon: ShieldCheck },
 ];
 
 export function Navbar() {

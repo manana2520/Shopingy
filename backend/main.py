@@ -76,6 +76,81 @@ def _to_numeric_safe(series: pd.Series) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# Data Quality endpoint
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/data-quality")
+def get_data_quality():
+    """Data completeness analysis for malls and stores."""
+    malls_df = load_malls().copy()
+    stores_df = load_stores().copy()
+
+    def field_completeness(df, col):
+        total = len(df)
+        if total == 0:
+            return {"field": col, "filled": 0, "total": 0, "pct": 0}
+        filled = df[col].notna() & (df[col].astype(str) != '') & (df[col].astype(str) != 'nan') & (df[col].astype(str) != '0')
+        # Don't count '0' as empty for numeric-like fields
+        if col in ('stores_count', 'brands_count', 'id', 'is_favorite'):
+            filled = df[col].notna() & (df[col].astype(str) != '') & (df[col].astype(str) != 'nan')
+        # Don't count sentinel dates as filled
+        if col in ('closed_date', 'opened_date'):
+            filled = filled & (df[col].astype(str) != '-0001-11-30')
+        return {"field": col, "filled": int(filled.sum()), "total": total, "pct": round(filled.sum() / total * 100, 1)}
+
+    # Mall field completeness
+    mall_fields = []
+    for col in malls_df.columns:
+        mall_fields.append(field_completeness(malls_df, col))
+
+    # Store field completeness
+    store_fields = []
+    for col in stores_df.columns:
+        store_fields.append(field_completeness(stores_df, col))
+
+    # Per-mall data quality score
+    key_fields = ['major_category', 'store_type', 'store_sqm', 'opened_date']
+    mall_scores = []
+    for mall_name, group in stores_df.groupby('shopping_mall'):
+        total = len(group)
+        scores = {}
+        for f in key_fields:
+            if f not in group.columns:
+                continue
+            filled = group[f].notna() & (group[f].astype(str) != '') & (group[f].astype(str) != 'nan') & (group[f].astype(str) != '0')
+            if f in ('closed_date', 'opened_date'):
+                filled = filled & (group[f].astype(str) != '-0001-11-30')
+            scores[f] = round(filled.sum() / total * 100, 1) if total > 0 else 0
+        avg = round(sum(scores.values()) / max(len(scores), 1), 1)
+        mall_scores.append({
+            "mall_name": mall_name,
+            "store_count": total,
+            "avg_completeness": avg,
+            **scores,
+        })
+    mall_scores.sort(key=lambda x: x["avg_completeness"])
+
+    # Overall summary
+    total_malls = len(malls_df)
+    total_stores = len(stores_df)
+    mall_overall = round(sum(f["pct"] for f in mall_fields) / max(len(mall_fields), 1), 1)
+    store_overall = round(sum(f["pct"] for f in store_fields) / max(len(store_fields), 1), 1)
+
+    return {
+        "summary": {
+            "total_malls": total_malls,
+            "total_stores": total_stores,
+            "mall_completeness_avg": mall_overall,
+            "store_completeness_avg": store_overall,
+        },
+        "mall_fields": mall_fields,
+        "store_fields": store_fields,
+        "mall_scores": mall_scores,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Kai AI chatbot helpers
 # ---------------------------------------------------------------------------
 

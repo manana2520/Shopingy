@@ -210,3 +210,24 @@ export interface EcosystemData {
   total_malls?: number;
   co_occurring?: EcosystemBrandEntry[];
 }
+
+export interface DataQualityResult {
+  summary: { total_malls: number; total_stores: number; mall_completeness_avg: number; store_completeness_avg: number };
+  mall_fields: FieldCompleteness[];
+  store_fields: FieldCompleteness[];
+  mall_scores: MallQualityScore[];
+}
+
+export interface FieldCompleteness {
+  field: string;
+  filled: number;
+  total: number;
+  pct: number;
+}
+
+export interface MallQualityScore {
+  mall_name: string;
+  store_count: number;
+  avg_completeness: number;
+  [key: string]: string | number;
+}
